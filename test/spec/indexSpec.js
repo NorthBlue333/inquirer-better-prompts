@@ -15,7 +15,7 @@ describe('inquirer-autocomplete-prompt', function () {
   var defaultChoices;
   var promiseForAnswer;
 
-  describe('suggestOnly = true', function () {
+  describe('allowCustom = true', function () {
     beforeEach(function () {
       defaultChoices = ['foo', new inquirer.Separator(), 'bar', 'bum'];
       promise = new Promise(function (res) {
@@ -28,7 +28,7 @@ describe('inquirer-autocomplete-prompt', function () {
         {
           message: 'test',
           name: 'name',
-          suggestOnly: true,
+          allowCustom: true,
           source: source,
         },
         rl
@@ -43,7 +43,7 @@ describe('inquirer-autocomplete-prompt', function () {
           filter: function (val) {
             return val.slice(0, 2);
           },
-          suggestOnly: true,
+          allowCustom: true,
           source: source,
         },
         rl
@@ -70,7 +70,7 @@ describe('inquirer-autocomplete-prompt', function () {
               done(null, val.slice(0, 2));
             }, 100);
           },
-          suggestOnly: true,
+          allowCustom: true,
           source: source,
         },
         rl
@@ -96,7 +96,7 @@ describe('inquirer-autocomplete-prompt', function () {
               resolve(val.slice(0, 2));
             });
           },
-          suggestOnly: true,
+          allowCustom: true,
           source: source,
         },
         rl
@@ -149,7 +149,7 @@ describe('inquirer-autocomplete-prompt', function () {
               return false;
             },
             source: source,
-            suggestOnly: true,
+            allowCustom: true,
           },
           rl
         );
@@ -189,7 +189,7 @@ describe('inquirer-autocomplete-prompt', function () {
             name: 'name',
             validate,
             source: source,
-            suggestOnly: true,
+            allowCustom: true,
           },
           rl,
           answers
@@ -227,7 +227,7 @@ describe('inquirer-autocomplete-prompt', function () {
               return promise;
             },
             source: source,
-            suggestOnly: true,
+            allowCustom: true,
           },
           rl
         );
@@ -276,7 +276,7 @@ describe('inquirer-autocomplete-prompt', function () {
               return promise;
             },
             source: source,
-            suggestOnly: true,
+            allowCustom: true,
           },
           rl
         );
@@ -296,7 +296,7 @@ describe('inquirer-autocomplete-prompt', function () {
     });
   });
 
-  describe('suggestOnly = false', function () {
+  describe('allowCustom = false', function () {
     beforeEach(function () {
       defaultChoices = ['foo', new inquirer.Separator(), 'bar', 'bum'];
       promise = new Promise(function (res) {
@@ -928,7 +928,7 @@ describe('inquirer-autocomplete-prompt', function () {
         });
       });
 
-      describe('with suggestOnly', function () {
+      describe('with allowCustom', function () {
         var answerValue = {};
 
         beforeEach(function () {

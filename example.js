@@ -4,10 +4,20 @@
 
 'use strict';
 var inquirer = require('inquirer');
-var _ = require('lodash');
 var fuzzy = require('fuzzy');
+const Choices = require('inquirer/lib/objects/choices');
+const { Separator } = require('inquirer');
+const {
+  FilteredChoice,
+  MultipleSelectSearchPrompt,
+  BetterCheckboxesPrompt,
+  SelectSearchPrompt,
+} = require('./');
+var chalk = require('chalk');
 
-inquirer.registerPrompt('autocomplete', require('./index'));
+inquirer.registerPrompt('multiple-select-search', MultipleSelectSearchPrompt);
+inquirer.registerPrompt('select-search', SelectSearchPrompt);
+inquirer.registerPrompt('better-checkboxes', BetterCheckboxesPrompt);
 
 var states = [
   'Alabama',
@@ -71,102 +81,255 @@ var states = [
   'Wyoming',
 ];
 
-var foods = ['Apple', 'Orange', 'Banana', 'Kiwi', 'Lichi', 'Grapefruit'];
+var foods = [
+  'Apple',
+  'Orange',
+  'Banana',
+  'Kiwi',
+  'Lichi',
+  { name: 'Grapefruit', value: 'Grape', short: 'Grapef' },
+];
 
-function searchStates(answers, input) {
+function searchStates(choices, answers, input) {
   input = input || '';
-  return new Promise(function (resolve) {
-    setTimeout(function () {
-      var fuzzyResult = fuzzy.filter(input, states);
-      const results = fuzzyResult.map(function (el) {
-        return el.original;
-      });
+  if (input === '') {
+    return null;
+  }
 
-      results.splice(5, 0, new inquirer.Separator());
-      results.push(new inquirer.Separator());
-      resolve(results);
-    }, _.random(30, 500));
-  });
-}
+  const realChoices = choices.realChoices.map(
+    (c, i) => new FilteredChoice(c, answers, i)
+  );
 
-function searchFood(answers, input) {
-  input = input || '';
-  return new Promise(function (resolve) {
-    setTimeout(function () {
-      var fuzzyResult = fuzzy.filter(input, foods);
-      resolve(
-        fuzzyResult.map(function (el) {
+  const lastCheckedIndex = realChoices.reduce(
+    (acc, choice, index) => (choice.checked ? index : acc),
+    -1
+  );
+
+  var fuzzyResult = fuzzy.filter(
+    input,
+    realChoices.slice(lastCheckedIndex + 1),
+    {
+      pre: '<',
+      post: '>',
+      extract: (choice) => choice.name,
+    }
+  );
+
+  return new Choices(
+    realChoices
+      .slice(0, lastCheckedIndex + 1)
+      .map((choice) => {
+        const match = fuzzy.match(input, choice.name, { pre: '<', post: '>' });
+        choice.name = match
+          ? match.rendered.replace(/<([^<>]*)>/g, chalk.bold.cyanBright('$1'))
+          : choice.name;
+        return choice;
+      })
+      .concat(
+        fuzzyResult.length ? new Separator() : [],
+        fuzzyResult.map((el) => {
+          el.original.name = el.string.replace(
+            /<([^<>]*)>/g,
+            chalk.bold.cyanBright('$1')
+          );
           return el.original;
         })
-      );
-    }, _.random(30, 500));
-  });
+      )
+  );
+}
+
+function searchFood(ordered, ms = 500) {
+  return (choices, answers, input) => {
+    return new Promise(function (resolve) {
+      setTimeout(function () {
+        input = input || '';
+        if (input === '') {
+          resolve(null);
+          return;
+        }
+
+        const realChoices = choices.realChoices.map(
+          (c, i) => new FilteredChoice(c, answers, i)
+        );
+
+        const lastCheckedIndex = !ordered
+          ? 0
+          : realChoices.reduce(
+              (acc, choice, index) => (choice.checked ? index : acc),
+              -1
+            ) + 1;
+
+        var fuzzyResult = fuzzy.filter(
+          input,
+          realChoices.slice(lastCheckedIndex),
+          {
+            pre: '<',
+            post: '>',
+            extract: (choice) => choice.name,
+          }
+        );
+
+        resolve(
+          new Choices(
+            realChoices
+              .slice(0, lastCheckedIndex)
+              .map((choice) => {
+                const match = fuzzy.match(input, choice.name, {
+                  pre: '<',
+                  post: '>',
+                });
+                choice.name = match
+                  ? match.rendered.replace(
+                      /<([^<>]*)>/g,
+                      chalk.bold.cyanBright('$1')
+                    )
+                  : choice.name;
+                return choice;
+              })
+              .concat(
+                fuzzyResult.length && ordered ? new Separator() : [],
+                fuzzyResult.map((el) => {
+                  el.original.name = el.string.replace(
+                    /<([^<>]*)>/g,
+                    chalk.bold.cyanBright('$1')
+                  );
+                  return el.original;
+                })
+              )
+          )
+        );
+      }, ms);
+    });
+  };
 }
 
 inquirer
   .prompt([
     {
-      type: 'autocomplete',
-      name: 'fruit',
-      suggestOnly: true,
+      type: 'select-search',
+      name: 'fruit-simple2',
+      allowCustom: false,
       message: 'What is your favorite fruit?',
       searchText: 'We are searching the internet for you!',
       emptyText: 'Nothing found!',
       default: 'Banana',
-      source: searchFood,
+      filterMethod: searchFood(false, 0),
+      choices: foods,
+      pageSize: 4,
+      validate: function (val) {
+        return val !== '' ? true : 'Type something!';
+      },
+      loop: true,
+    },
+    {
+      type: 'select-search',
+      name: 'fruit-simple',
+      allowCustom: true,
+      message: 'What is your favorite fruit?',
+      searchText: 'We are searching the internet for you!',
+      emptyText: 'Nothing found!',
+      default: 'Banana',
+      filterMethod: searchFood(false, 0),
+      choices: foods,
       pageSize: 4,
       validate: function (val) {
         return val ? true : 'Type something!';
       },
+      loop: true,
     },
     {
-      type: 'autocomplete',
-      name: 'state',
-      message: 'Select a state to travel from',
-      default: 'California',
-      validate(choice, answers) {
-        if (answers.fruit === 'Banana') {
-          return choice.value[0] === 'C'
-            ? true
-            : 'Since you selected Banana in the previous prompt you need to select a state that starts with "C". Makes sense.';
-        }
-        return true;
+      type: 'select-search',
+      name: 'fruit-simple',
+      allowCustom: true,
+      message: 'What is your favorite fruit?',
+      searchText: 'We are searching the internet for you!',
+      emptyText: 'Nothing found!',
+      filterMethod: searchFood(false, 0),
+      choices: foods,
+      pageSize: 4,
+      validate: function (val) {
+        return val ? true : 'Type something!';
       },
-      source: searchStates,
+      loop: true,
     },
     {
-      type: 'autocomplete',
-      name: 'stateNoPromise',
-      message: 'Select a state to travel to',
-      source: () => states,
+      type: 'multiple-select-search',
+      name: 'fruit2',
+      allowCustom: true,
+      message: 'What is your favorite fruit?',
+      searchText: 'We are searching the internet for you!',
+      emptyText: 'Nothing found!',
+      default: ['Banana', 'Kiwi'],
+      filterMethod: searchFood(false),
+      choices: foods,
+      pageSize: 4,
+      validate: function (val) {
+        return val ? true : 'Type something!';
+      },
+      loop: true,
+      debounceSearch: 2000,
     },
     {
-      type: 'autocomplete',
-      name: 'multiline',
-      pageSize: 20,
-      message: 'Choices support multiline choices (should increase pagesize)',
-      source: () =>
-        Promise.resolve([
-          'Option1',
-          'Option2\n\nline2\nline3',
-          'Option3\n\nblank line between\n\n\nfar down\nlast line',
-          new inquirer.Separator(),
-        ]),
+      type: 'multiple-select-search',
+      name: 'fruit',
+      allowCustom: true,
+      message: 'What is your favorite fruit?',
+      searchText: 'We are searching the internet for you!',
+      emptyText: 'Nothing found!',
+      default: ['Banana', 'Kiwi'],
+      filterMethod: searchFood(true),
+      choices: foods,
+      pageSize: 4,
+      validate: function (val) {
+        return val ? true : 'Type something!';
+      },
+      loop: false,
+      reorderOnSelect: true,
+    },
+    {
+      type: 'multiple-select-search',
+      name: 'fruit3',
+      allowCustom: true,
+      message: 'What is your favorite fruit?',
+      searchText: 'We are searching the internet for you!',
+      emptyText: 'Nothing found!',
+      default: ['Banana', 'Kiwi'],
+      filterMethod: searchFood(false),
+      choices: foods,
+      pageSize: 4,
+      validate: function (val) {
+        return val ? true : 'Type something!';
+      },
+      loop: true,
+    },
+    {
+      type: 'multiple-select-search',
+      name: 'states',
+      allowCustom: false,
+      multiple: true,
+      message: 'What is your favorite fruit?',
+      searchText: 'We are searching the internet for you!',
+      emptyText: 'Nothing found!',
+      default: [2, 'Colorado', { value: 'Maryland' }],
+      filterMethod: searchStates,
+      choices: states,
+      pageSize: 4,
+      loop: false,
+      reorderOnSelect: true,
+    },
+    {
+      type: 'better-checkboxes',
+      name: 'better-checkboxes',
+      loop: true,
+      choices: foods,
+      pageSize: 4,
     },
     {
       type: 'checkbox',
-      name: 'multilineCheckbox',
-      message: 'Normal checkbox multiline example',
-      choices: [
-        'Alaska\nmore lines\neven more\nlast line',
-        'filler1',
-        'filler2',
-        'filler3',
-        'filler4',
-        'filler5',
-        'filler6',
-        new inquirer.Separator(),
-      ],
+      name: 'basiccheckbox',
+      loop: true,
+      choices: foods,
+      pageSize: 4,
     },
   ])
   .then(function (answers) {
