@@ -215,7 +215,7 @@ inquirer
       default: 'Banana',
       filterMethod: searchFood(false, 0),
       choices: foods,
-      pageSize: 4,
+      pageSize: 15,
       validate: function (val) {
         return val !== '' ? true : 'Type something!';
       },

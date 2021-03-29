@@ -180,15 +180,17 @@ class MultipleSelectSearchPrompt extends CheckboxPrompt {
       message += '\n' + chalk.yellow(this.opt.searchText || 'Searching...');
     } else {
       message += this.rl.line;
+      var availableChoices = this.filteredChoices || this.opt.choices;
       var choicesStr = renderChoices(
-        this.filteredChoices || this.opt.choices,
-        this.pointer
+        availableChoices,
+        this.pointer,
+        !!this.opt.shouldDimNotSelected
       );
-      var indexPosition = this.opt.choices.indexOf(
-        this.opt.choices.getChoice(this.pointer)
+      var indexPosition = availableChoices.indexOf(
+        availableChoices.getChoice(this.pointer)
       );
       var realIndexPosition =
-        this.opt.choices.reduce(function (acc, value, i) {
+        availableChoices.reduce(function (acc, value, i) {
           // Dont count lines past the choice we are looking at
           if (i > indexPosition) {
             return acc;
@@ -360,7 +362,7 @@ class MultipleSelectSearchPrompt extends CheckboxPrompt {
  * @return {String}         Rendered content
  */
 
-function renderChoices(choices, pointer) {
+function renderChoices(choices, pointer, dim = false) {
   var output = '';
   var separatorOffset = 0;
 
@@ -383,7 +385,7 @@ function renderChoices(choices, pointer) {
       if (i - separatorOffset === pointer) {
         output += chalk.cyan(figures.pointer + line);
       } else {
-        output += ' ' + line;
+        output += ` ${dim ? chalk.dim(line) : line}`;
       }
     }
 

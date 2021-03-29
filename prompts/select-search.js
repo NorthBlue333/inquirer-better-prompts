@@ -55,7 +55,6 @@ class SelectSearchPrompt extends ListPrompt {
     }
 
     this.onNewSearch();
-    this.initialPageSize = this.opt.pageSize || 7;
     this.setCurrentValue();
     this.firstKeyPressed = false;
   }
@@ -187,15 +186,17 @@ class SelectSearchPrompt extends ListPrompt {
       message += '\n' + chalk.yellow(this.opt.searchText || 'Searching...');
     } else {
       message += this.rl.line;
+      var availableChoices = this.filteredChoices || this.opt.choices;
       var choicesStr = listRender(
-        this.filteredChoices || this.opt.choices,
-        this.selected
+        availableChoices,
+        this.selected,
+        !!this.opt.shouldDimNotSelected
       );
-      var indexPosition = this.opt.choices.indexOf(
-        this.opt.choices.getChoice(this.selected)
+      var indexPosition = availableChoices.indexOf(
+        availableChoices.getChoice(this.selected)
       );
       var realIndexPosition =
-        this.opt.choices.reduce(function (acc, value, i) {
+        availableChoices.reduce(function (acc, value, i) {
           // Dont count lines past the choice we are looking at
           if (i > indexPosition) {
             return acc;
@@ -339,7 +340,7 @@ class SelectSearchPrompt extends ListPrompt {
  * @param  {Number} pointer Position of the pointer
  * @return {String}         Rendered content
  */
-function listRender(choices, pointer) {
+function listRender(choices, pointer, dim = false) {
   var output = '';
   var separatorOffset = 0;
 
@@ -365,6 +366,8 @@ function listRender(choices, pointer) {
     var line = (isSelected ? figures.pointer + ' ' : '  ') + choice.name;
     if (isSelected) {
       line = chalk.cyan(line);
+    } else if (dim) {
+      line = chalk.dim(line);
     }
 
     output += line + ' \n';
